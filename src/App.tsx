@@ -2,6 +2,8 @@ import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.2.0/dist/tf-core.mi
 import 'https://unpkg.com/@tensorflow/tfjs-backend-webgl@3.7.0/dist/tf-backend-webgl.min.js'
 import 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.min.js'
 import 'https://cdn.jsdelivr.net/npm/@tensorflow-models/hand-pose-detection@2.0.0/dist/hand-pose-detection.min.js'
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.5.0/dist/tf.min.js'
+import 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tfdf/dist/tf-tfdf.min.js'
 
 import { useEffect, useRef } from 'react'
 
@@ -10,6 +12,7 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frame = useRef(0)
   let detector: any
+  let librasModel: any
 
   const FINGER_LOOKUP_INDICES: any = {
     thumb: [0, 1, 2, 3, 4],
@@ -128,7 +131,7 @@ export function App() {
     canvas.height = camera.height
   }
 
-  async function loadModel() {
+  async function loadHandPoseDetectionModel() {
     if (!detector) {
       const handsVersion = window.VERSION
       const detectorConfig = {
@@ -145,6 +148,23 @@ export function App() {
     }
   }
 
+  async function loadTFDFModel() {
+    librasModel = await window.tfdf.loadTFDFModel(
+      'https://cdn.jsdelivr.net/gh/arrudadev/tf-decision-forests-libras/model.json',
+    )
+  }
+
+  function landmarksToTensor(landmarks: any) {
+    const inputData = {} as any
+
+    landmarks.forEach((landmark: any) => {
+      inputData[`${landmark.name}_x`] = window.tf.tensor1d([landmark.x])
+      inputData[`${landmark.name}_y`] = window.tf.tensor1d([landmark.y])
+    })
+
+    return inputData
+  }
+
   async function estimateHands() {
     const camera = getCamera()
     const canvas = getCanvas()
@@ -159,6 +179,9 @@ export function App() {
 
     if (handsPredictions?.length) {
       drawHands(handsPredictions, ctx)
+      const inputData = landmarksToTensor(handsPredictions[0].keypoints)
+      const prediction = await librasModel.executeAsync(inputData)
+      console.log(prediction)
     }
 
     estimateHandsFrameLoop()
@@ -179,7 +202,8 @@ export function App() {
 
     await setupCamera()
     setupCanvas()
-    await loadModel()
+    await loadHandPoseDetectionModel()
+    await loadTFDFModel()
     estimateHandsFrameLoop()
   }
 

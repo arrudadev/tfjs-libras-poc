@@ -5,5 +5,7 @@ declare global {
     VERSION: string
     handPoseDetection: any
     fp: any
+    tf: any
+    tfdf: any
   }
 }
